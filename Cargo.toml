@@ -1,0 +1,22 @@
+[package]
+name = "rust-api-architecture-model"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+actix-cors = "0.7.1"
+actix-web = "4.11.0"
+argon2 = { version = "0.5.3", features = ["std"] }
+async-trait = "0.1.88"
+chrono = { version = "0.4.41", features = ["serde"] }
+dotenv = "0.15.0"
+env_logger = "0.11.8"
+jsonwebtoken = "9.3.1"
+lazy_static = "1.5.0"
+log = "0.4.27"
+regex = "1.11.1"
+serde = { version = "1.0.219", features = ["derive"]}
+serde_json = "1.0.140"
+sqlx = { version = "0.8.6", features = ["runtime-tokio-rustls", "postgres", "uuid", "time", "json", "tls-native-tls", "chrono", "runtime-tokio", "tls-rustls"] }
+thiserror = "2.0.12"
+uuid = { version = "1.17.0", features = ["serde", "v4"] }
