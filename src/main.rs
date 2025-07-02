@@ -9,6 +9,7 @@ use rust_api_architecture_model::repositories::user_repository::PgUserRepository
 use rust_api_architecture_model::routes::config::base_routes::configure_routes;
 use rust_api_architecture_model::services::user_service::UserService;
 use rust_api_architecture_model::services::auth_service::AuthService;
+use rust_api_architecture_model::middleware::auth::AuthMiddleware;
 
 
 #[actix_web::main]
@@ -63,9 +64,11 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .wrap(cors)
             .wrap(Logger::default())
+            .wrap(AuthMiddleware)
             .app_data(user_repository.clone())
             .app_data(user_service.clone())
             .app_data(auth_service.clone())
+            .app_data(web::Data::new(config.clone()))
             .configure(configure_routes)
     })
     .bind(server_addr)?
