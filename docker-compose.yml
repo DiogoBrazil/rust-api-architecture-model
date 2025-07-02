@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16.4
+    container_name: api_rust_model_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: db_model
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_model_data:/var/lib/postgresql/data
+
+volumes:
+  db_model_data:
