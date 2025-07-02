@@ -4,7 +4,6 @@ use uuid::Uuid;
 use crate::core::entities::user::{
     CreateUser,
     UpdateUser,
-    UserDataCreated,
 };
 use crate::adapters::password_hasher::PasswordEncryptorPort;
 use crate::core::contracts::repository::users::UserRepository;
@@ -25,32 +24,43 @@ impl UserService {
         user_repo: web::Data<PgUserRepository>,
         password_encryptor: Box<dyn PasswordEncryptorPort>,
     ) -> Self {
-        Self {user_repo, password_encryptor}
+        Self { user_repo, password_encryptor }
+    }
+
+    // Private validation helper function
+    fn validate_user_fields(&self, full_name: &str, email: &str, password: Option<&str>, error_context: &str) -> Result<(), AppError> {
+        info!("[Service] Validating required fields");
+
+        let mut fields_to_validate = vec![
+            ("full_name", full_name.is_empty()),
+            ("email", email.is_empty()),
+        ];
+
+        if let Some(p) = password {
+            fields_to_validate.push(("password", p.is_empty()));
+        }
+
+        validate_required_fields(&fields_to_validate, error_context)?;
+        info!("[Service] Required fields validation passed");
+
+        info!("[Service] Validating email format: {}", email);
+        if !is_valid_email(email) {
+            return Err(errors::AppError::BadRequest(
+                format!("{}'{}' is not a valid email", error_context, email)
+            ));
+        }
+        info!("[Service] Email format validation passed");
+
+        Ok(())
     }
 
     pub async fn create_user(&self, data: CreateUser) -> Result<HttpResponse, errors::AppError> {
         info!("[Service] Starting user creation process for email: {}", data.email);
 
-        info!("[Service] Validating required fields");
-        let fields = [
-            ("full_name", data.full_name.is_empty()),
-            ("email", data.email.is_empty()),
-            ("password", data.password.is_empty()),
-        ];
-
-        validate_required_fields(&fields, "Error adding user")?;
-        info!("[Service] Required fields validation passed");
-
-        info!("[Service] Validating email format: {}", data.email);
-        if !is_valid_email(&data.email) {
-            return Err(errors::AppError::BadRequest(
-                format!("Error adding user: '{}' is not a valid email", data.email)
-            ));
-        }
-        info!("[Service] Email format validation passed");
+        self.validate_user_fields(&data.full_name, &data.email, Some(&data.password), "Error adding user: ")?;
 
         info!("[Service] Checking if user already exists with email: {}", data.email);
-        if let Ok(_existing_user) = self.user_repo.find_user_by_email(data.email.clone()).await {
+        if self.user_repo.find_user_by_email(data.email.clone()).await.is_ok() {
             info!("[Service] User already exists with email: {}", data.email);
             return Err(errors::AppError::BadRequest(
                 format!("Error adding user: email '{}' already exists", data.email)
@@ -82,37 +92,9 @@ impl UserService {
     }
 
     pub async fn update_user(&self, data: UpdateUser, id: Uuid) -> Result<HttpResponse, AppError> {
-        info!("[Service] Starting update user process for email: {}", data.email.clone());
+        info!("[Service] Starting update user process for id: {}", id);
 
-        info!("[Service] Checking if user exists with id: {}", id);
-        match self.user_repo.find_user_by_id(id).await {
-            Ok(_existing_user) => {
-                info!("[Service] User exists, proceeding with update");
-            }
-            Err(_) => {
-                info!("[Service] User not found with id: {}", id);
-                return Err(AppError::BadRequest(
-                    format!("Error updating user: id '{}' not found", id)
-                ));
-            }
-        }
-
-        info!("[Service] Validating required fields");
-        let fields = [
-            ("full_name", data.full_name.is_empty()),
-            ("email", data.email.is_empty()),
-        ];
-
-        validate_required_fields(&fields, "Error updating user")?;
-        info!("[Service] Required fields validation passed");
-
-        info!("[Service] Validating email format: {}", data.email);
-        if !is_valid_email(&data.email) {
-            return Err(errors::AppError::BadRequest(
-                format!("Error updating user: '{}' is not a valid email", data.email)
-            ));
-        }
-        info!("[Service] Email format validation passed");
+        self.validate_user_fields(&data.full_name, &data.email, None, "Error updating user: ")?;
 
         info!("[Service] Checking if the email is already in use by another user");
         if self.user_repo.email_exists_for_other_user(&data.email, id).await? {
@@ -120,7 +102,7 @@ impl UserService {
                 format!("Email '{}' is already in use by another user", data.email)
             ));
         }
-        info!("[Service] There is no user with the email {} registered in the database, proceeding with the update", data.email);
+        info!("[Service] Email is available, proceeding with the update");
 
         info!("[Service] Saving user to database");
         match self.user_repo.update_user(id, data).await {
@@ -128,6 +110,10 @@ impl UserService {
                 info!("[Service] User updated successfully with ID: {}", user.id);
                 Ok(response::ApiResponse::updated(user).into_response())
             },
+            Err(sqlx::Error::RowNotFound) => {
+                error!("[Service] User with id {} not found for update", id);
+                Err(AppError::NotFound(format!("User with id '{}' not found", id)))
+            }
             Err(e) => {
                 error!("[Service] Error updating user in database: {:?}", e);
                 Err(errors::AppError::InternalServerError)
@@ -157,28 +143,15 @@ impl UserService {
     pub async fn delete_user_by_id(&self, id: Uuid) -> Result<HttpResponse, AppError> {
         info!("[Service] Starting delete user by id process for id: {}", id);
 
-        info!("[Service] Checking if user exists with id: {}", id);
-        match self.user_repo.find_user_by_id(id).await {
-            Ok(_existing_user) => {
-                info!("[Service] User exists, proceeding with delete");
-            }
-            Err(_) => {
-                info!("[Service] User not found with id: {}", id);
-                return Err(AppError::BadRequest(
-                    format!("Error deleting user: id '{}' not found", id)
-                ));
-            }
-        }
-
-        info!("[Service] Deleting user to database");
+        info!("[Service] Deleting user from database");
         match self.user_repo.delete_user(id).await {
             Ok(true) => {
                 info!("[Service] User deleted successfully with ID: {}", id);
                 Ok(ApiResponse::success(()).into_response())
             }
             Ok(false) =>{
-                error!("[Service] Database error while deleting user");
-                Err(AppError::NotFound(format!("User '{}' not found", id)))
+                error!("[Service] User with id {} not found for deletion", id);
+                Err(AppError::NotFound(format!("User with id '{}' not found", id)))
             }
             Err(e) => {
                 error!("[Service] Database error while deleting user: {:?}", e);
