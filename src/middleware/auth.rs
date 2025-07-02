@@ -75,7 +75,7 @@ where
         }
 
         // Primeiro verifica se é rota pública
-        if is_public_route(&req.path()) {
+        if is_public_route(req.path()) {
             let fut = self.service.call(req);
             return Box::pin(async move {
                 let res = fut.await?;

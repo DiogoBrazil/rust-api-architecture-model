@@ -16,6 +16,12 @@ pub trait PasswordEncryptorPort: Send + Sync {
 #[derive(Clone)]
 pub struct Argon2PasswordEncryptor;
 
+impl Default for Argon2PasswordEncryptor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Argon2PasswordEncryptor {
     pub fn new() -> Self {
         Self

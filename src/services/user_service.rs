@@ -72,7 +72,7 @@ impl UserService {
         match self.user_repo.create_user(user_with_hash).await {
             Ok(user) => {
                 info!("[Service] User created successfully with ID: {}", user.id);
-                Ok(response::ApiResponse::created(UserDataCreated::from(user)).into_response())
+                Ok(response::ApiResponse::created(user).into_response())
             },
             Err(e) => {
                 error!("[Service] Error creating user in database: {:?}", e);
@@ -126,7 +126,7 @@ impl UserService {
         match self.user_repo.update_user(id, data).await {
             Ok(user) => {
                 info!("[Service] User updated successfully with ID: {}", user.id);
-                Ok(response::ApiResponse::updated(UserDataCreated::from(user)).into_response())
+                Ok(response::ApiResponse::updated(user).into_response())
             },
             Err(e) => {
                 error!("[Service] Error updating user in database: {:?}", e);

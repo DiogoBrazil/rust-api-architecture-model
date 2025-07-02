@@ -10,6 +10,12 @@ pub trait TokenGeneratorPort: Send + Sync {
 #[derive(Clone)]
 pub struct JwtTokenGenerator;
 
+impl Default for JwtTokenGenerator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl JwtTokenGenerator {
     pub fn new() -> Self {
         Self
