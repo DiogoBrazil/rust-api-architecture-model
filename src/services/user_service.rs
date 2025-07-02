@@ -2,9 +2,7 @@ use actix_web::{web, HttpResponse};
 use log::{error, info};
 use uuid::Uuid;
 use crate::core::entities::user::{
-    //ClaimsToUserToken,
     CreateUser,
-    //UpdatePasswordUser,
     UpdateUser,
     UserDataCreated,
 };
